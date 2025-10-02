@@ -47,6 +47,10 @@ export default function Chat() {
         const savedToken = localStorage.getItem('telegramApiKey');
         if (savedToken) {
           setTelegramApiKey(savedToken);
+        } else {
+          // If no token, redirect to login
+          router.push('/');
+          return;
         }
         
         // Get GitHub repo config
@@ -56,27 +60,6 @@ export default function Chat() {
           setGithubRepo(repo);
         } else {
           throw new Error('Gagal ambil konfigurasi repo');
-        }
-        
-        // If we don't have a token in localStorage, try to get it from GitHub
-        if (!savedToken) {
-          const tokenResponse = await fetch('/api/botToken');
-          if (tokenResponse.ok) {
-            const { token } = await tokenResponse.json();
-            if (token) {
-              setTelegramApiKey(token);
-              // Save to localStorage for future use
-              localStorage.setItem('telegramApiKey', token);
-            } else {
-              // No token found in GitHub either, redirect to login
-              router.push('/');
-              return;
-            }
-          } else {
-            // If we can't get token from GitHub, redirect to login
-            router.push('/');
-            return;
-          }
         }
         
         // Load initial users
@@ -234,24 +217,6 @@ export default function Chat() {
       // Remove token from localStorage
       localStorage.removeItem('telegramApiKey');
       
-      // Remove the token from GitHub database
-      const chatsResponse = await fetch('/api/chats');
-      const chats = await chatsResponse.json();
-      
-      // Filter out the token message
-      const updatedChats = chats.filter(chat => 
-        !(chat.chatId === 0 && chat.text.startsWith('/settoken '))
-      );
-      
-      // Save updated chats
-      await fetch('/api/chats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ chats: updatedChats }),
-      });
-      
       // Redirect to login page
       router.push('/');
     } catch (err) {
@@ -299,7 +264,7 @@ export default function Chat() {
             >
               <div className="flex items-center">
                 <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 Kontak
               </div>
