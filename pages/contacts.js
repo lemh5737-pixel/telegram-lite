@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 
 export default function Contacts() {
   const [chats, setChats] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [telegramApiKey, setTelegramApiKey] = useState('');
@@ -12,20 +13,8 @@ export default function Contacts() {
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
   
-  // Get unique users from chats (excluding system messages)
-  const uniqueUsers = [...new Set(chats.filter(chat => chat.chatId !== 0).map(chat => chat.chatId))].map(chatId => {
-    const userChat = chats.find(chat => chat.chatId === chatId);
-    return {
-      chatId,
-      name: userChat.user,
-      username: userChat.username,
-      lastMessage: userChat.text,
-      timestamp: userChat.timestamp
-    };
-  });
-  
   // Filter users based on search term
-  const filteredUsers = uniqueUsers.filter(user => 
+  const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
     user.chatId.toString().includes(searchTerm)
@@ -43,6 +32,15 @@ export default function Contacts() {
           // If no token, redirect to login
           router.push('/');
           return;
+        }
+        
+        // Load initial users
+        const usersResponse = await fetch('/api/users');
+        if (usersResponse.ok) {
+          const initialUsers = await usersResponse.json();
+          setUsers(initialUsers);
+        } else {
+          throw new Error('Gagal muat data pengguna');
         }
         
         // Load initial chats
@@ -83,8 +81,9 @@ export default function Contacts() {
         });
         
         if (response.ok) {
-          const { chats: updatedChats } = await response.json();
+          const { chats: updatedChats, users: updatedUsers } = await response.json();
           setChats(updatedChats);
+          setUsers(updatedUsers);
         }
       } catch (err) {
         console.error('Error checking for new messages:', err);
@@ -153,7 +152,40 @@ export default function Contacts() {
       }
       
       if (chatId && userInfo) {
-        // Add a system message to initiate the chat
+        // Get current users
+        const usersResponse = await fetch('/api/users');
+        const currentUsers = await usersResponse.json();
+        
+        // Check if user already exists
+        const userExists = currentUsers.some(u => u.chatId === chatId);
+        
+        if (!userExists) {
+          // Add new user to users list
+          const newUser = {
+            chatId,
+            name: userInfo.name,
+            username: userInfo.username,
+            lastMessage: 'Chat dimulai',
+            lastMessageTime: new Date().toISOString(),
+            firstContactTime: new Date().toISOString()
+          };
+          
+          const updatedUsers = [...currentUsers, newUser];
+          
+          // Save updated users
+          await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ users: updatedUsers }),
+          });
+          
+          // Update local state
+          setUsers(updatedUsers);
+        }
+        
+        // Add a system message to chats
         const chatsResponse = await fetch('/api/chats');
         const currentChats = await chatsResponse.json();
         
@@ -253,7 +285,7 @@ export default function Contacts() {
           <div className="flex items-center">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
               <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <h1 className="ml-3 text-xl md:text-2xl font-bold text-gray-900">Kontak</h1>
@@ -426,7 +458,7 @@ export default function Contacts() {
                           </div>
                           <div className="flex flex-col items-end">
                             <div className="text-xs text-gray-400">
-                              {new Date(user.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(user.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
                             <div className="mt-1">
                               <svg className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -442,7 +474,7 @@ export default function Contacts() {
               ) : (
                 <li className="px-4 py-12 text-center">
                   <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">Belum ada kontak</h3>
                   <p className="mt-1 text-sm text-gray-500">
@@ -463,7 +495,7 @@ export default function Contacts() {
             className="flex flex-col items-center justify-center p-2 text-indigo-600"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <span className="text-xs mt-1">Kontak</span>
           </button>
