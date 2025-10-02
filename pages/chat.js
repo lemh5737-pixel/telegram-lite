@@ -363,32 +363,38 @@ export default function Chat() {
                       {userChats.map((chat, index) => (
                         <div
                           key={index}
-                          className={`flex ${chat.from === 'bot' ? 'justify-end' : 'justify-start'}`}
+                          className={`flex ${chat.from === 'bot' ? 'justify-end' : chat.from === 'system' ? 'justify-center' : 'justify-start'}`}
                         >
-                          <div
-                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl relative group ${chat.from === 'bot' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}
-                          >
-                            <p>{chat.text}</p>
-                            <p
-                              className={`text-xs mt-1 ${chat.from === 'bot' ? 'text-indigo-200' : 'text-gray-500'}`}
+                          {chat.from === 'system' ? (
+                            <div className="text-xs text-gray-500 bg-gray-200 rounded-full px-3 py-1">
+                              {chat.text}
+                            </div>
+                          ) : (
+                            <div
+                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl relative group ${chat.from === 'bot' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}
                             >
-                              {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            
-                            {/* Delete button - only visible on hover */}
-                            <button
-                              onClick={() => setDeleteConfirm({ 
-                                chatId: chat.chatId, 
-                                messageId: chat.id,
-                                telegramMessageId: chat.telegramMessageId
-                              })}
-                              className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${chat.from === 'bot' ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-700'}`}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
+                              <p>{chat.text}</p>
+                              <p
+                                className={`text-xs mt-1 ${chat.from === 'bot' ? 'text-indigo-200' : 'text-gray-500'}`}
+                              >
+                                {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                              
+                              {/* Delete button - only visible on hover */}
+                              <button
+                                onClick={() => setDeleteConfirm({ 
+                                  chatId: chat.chatId, 
+                                  messageId: chat.id,
+                                  telegramMessageId: chat.telegramMessageId
+                                })}
+                                className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${chat.from === 'bot' ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-700'}`}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                       <div ref={messagesEndRef} />
