@@ -240,24 +240,6 @@ export default function Contacts() {
       // Remove token from localStorage
       localStorage.removeItem('telegramApiKey');
       
-      // Remove the token from GitHub database
-      const chatsResponse = await fetch('/api/chats');
-      const chats = await chatsResponse.json();
-      
-      // Filter out the token message
-      const updatedChats = chats.filter(chat => 
-        !(chat.chatId === 0 && chat.text.startsWith('/settoken '))
-      );
-      
-      // Save updated chats
-      await fetch('/api/chats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ chats: updatedChats }),
-      });
-      
       // Redirect to login page
       router.push('/');
     } catch (err) {
