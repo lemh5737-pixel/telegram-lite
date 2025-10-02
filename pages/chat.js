@@ -10,6 +10,7 @@ export default function Chat() {
   const [telegramApiKey, setTelegramApiKey] = useState('');
   const [githubRepo, setGithubRepo] = useState({ owner: '', repo: '' });
   const [isInitialized, setIsInitialized] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { chatId, messageId }
   const messagesEndRef = useRef(null);
   const router = useRouter();
   
@@ -172,6 +173,32 @@ export default function Chat() {
     }
   };
 
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      // Filter out the message to be deleted
+      const updatedChats = chats.filter(chat => chat.id !== messageId);
+      
+      // Save updated chats to GitHub
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chats: updatedChats }),
+      });
+      
+      if (response.ok) {
+        setChats(updatedChats);
+        setDeleteConfirm(null); // Close confirmation dialog
+      } else {
+        setError('Failed to delete message');
+      }
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      setError('Failed to delete message');
+    }
+  };
+
   const handleLogout = async () => {
     try {
       // Remove token from localStorage
@@ -260,7 +287,7 @@ export default function Chat() {
                           {user.name}
                         </p>
                         <p className="text-sm text-gray-500 truncate">
-                          {user.username ? `@${user.username}` : ''}
+                          {user.username ? `@${user.username}` : ''} • {user.chatId}
                         </p>
                         <p className="text-xs text-gray-400 truncate">
                           {user.lastMessage}
@@ -294,7 +321,7 @@ export default function Chat() {
                         {selectedChat.name}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {selectedChat.username ? `@${selectedChat.username}` : ''}
+                        {selectedChat.username ? `@${selectedChat.username}` : ''} • {selectedChat.chatId}
                       </p>
                     </div>
                   </div>
@@ -310,7 +337,7 @@ export default function Chat() {
                           className={`flex ${chat.from === 'bot' ? 'justify-end' : 'justify-start'}`}
                         >
                           <div
-                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl ${chat.from === 'bot' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}
+                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl relative group ${chat.from === 'bot' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}
                           >
                             <p>{chat.text}</p>
                             <p
@@ -318,6 +345,16 @@ export default function Chat() {
                             >
                               {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
+                            
+                            {/* Delete button - only visible on hover */}
+                            <button
+                              onClick={() => setDeleteConfirm({ chatId: chat.chatId, messageId: chat.id })}
+                              className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${chat.from === 'bot' ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-700'}`}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -357,6 +394,30 @@ export default function Chat() {
           </div>
         </div>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Message</h3>
+            <p className="text-gray-500 mb-6">Are you sure you want to delete this message? This action cannot be undone.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteMessage(deleteConfirm.messageId)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg">
