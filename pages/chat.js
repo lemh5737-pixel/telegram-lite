@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { getUpdates, sendMessage } from '../lib/telegram';
-import { getChats, saveChats } from '../lib/github';
 
 export default function Chat() {
   const [chats, setChats] = useState([]);
@@ -9,17 +7,13 @@ export default function Chat() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [telegramApiKey, setTelegramApiKey] = useState('');
+  const [githubRepo, setGithubRepo] = useState({ owner: '', repo: '' });
   const messagesEndRef = useRef(null);
   const router = useRouter();
   
-  // GitHub repository configuration
-  const githubRepo = {
-    owner: 'lemh5737-pixel',
-    repo: 'telegram-lite-db'
-  };
-  
-  // Get unique users from chats
-  const uniqueUsers = [...new Set(chats.map(chat => chat.chatId))].map(chatId => {
+  // Get unique users from chats (excluding system messages)
+  const uniqueUsers = [...new Set(chats.filter(chat => chat.chatId !== 0).map(chat => chat.chatId))].map(chatId => {
     const userChat = chats.find(chat => chat.chatId === chatId);
     return {
       chatId,
@@ -44,155 +38,112 @@ export default function Chat() {
     scrollToBottom();
   }, [userChats]);
 
-  // Check if user is logged in
+  // Initialize app
   useEffect(() => {
-    const telegramApiKey = localStorage.getItem('telegramApiKey');
-    const githubToken = localStorage.getItem('githubToken');
-    
-    if (!telegramApiKey || !githubToken) {
-      router.push('/');
-      return;
-    }
-    
-    // Load initial chats
-    const loadChats = async () => {
+    const initializeApp = async () => {
       try {
-        const initialChats = await getChats(
-          githubToken,
-          githubRepo.owner,
-          githubRepo.repo
-        );
-        setChats(initialChats);
+        // Get GitHub repo config
+        const configResponse = await fetch('/api/config');
+        if (configResponse.ok) {
+          const { repo } = await configResponse.json();
+          setGithubRepo(repo);
+        } else {
+          throw new Error('Failed to get repository configuration');
+        }
         
-        if (initialChats.length > 0) {
-          setSelectedChat({
-            chatId: initialChats[initialChats.length - 1].chatId,
-            name: initialChats[initialChats.length - 1].user,
-            username: initialChats[initialChats.length - 1].username
-          });
+        // Get Telegram API key
+        const tokenResponse = await fetch('/api/botToken');
+        if (tokenResponse.ok) {
+          const { token } = await tokenResponse.json();
+          setTelegramApiKey(token);
+        } else {
+          // If no token found, redirect to login
+          router.push('/');
+          return;
+        }
+        
+        // Load initial chats
+        const chatsResponse = await fetch('/api/chats');
+        if (chatsResponse.ok) {
+          const initialChats = await chatsResponse.json();
+          setChats(initialChats);
+          
+          // Select the first user chat if available
+          const userChats = initialChats.filter(chat => chat.chatId !== 0);
+          if (userChats.length > 0) {
+            const lastChat = userChats[userChats.length - 1];
+            setSelectedChat({
+              chatId: lastChat.chatId,
+              name: lastChat.user,
+              username: lastChat.username
+            });
+          }
+        } else {
+          throw new Error('Failed to load chats');
         }
         
         setLoading(false);
       } catch (err) {
-        setError('Failed to load chats');
+        console.error('Initialization error:', err);
+        setError(err.message || 'Failed to initialize app');
         setLoading(false);
       }
     };
     
-    loadChats();
+    initializeApp();
+  }, [router]);
+  
+  // Set up interval to check for new messages
+  useEffect(() => {
+    if (!telegramApiKey) return;
     
-    // Set up interval to check for new messages
     const interval = setInterval(async () => {
-      const telegramApiKey = localStorage.getItem('telegramApiKey');
-      const githubToken = localStorage.getItem('githubToken');
-      
-      if (telegramApiKey && githubToken) {
-        try {
-          // Get updates from Telegram
-          const updates = await getUpdates(telegramApiKey);
-          
-          if (updates.length > 0) {
-            // Get current chats
-            const currentChats = await getChats(
-              githubToken,
-              githubRepo.owner,
-              githubRepo.repo
-            );
-            
-            // Process new messages
-            const newChats = [...currentChats];
-            
-            for (const update of updates) {
-              if (update.message && update.message.text) {
-                const message = update.message;
-                const chatId = message.chat.id;
-                const user = message.from.first_name + (message.from.last_name ? ' ' + message.from.last_name : '');
-                const username = message.from.username || '';
-                const text = message.text;
-                const timestamp = new Date().toISOString();
-                
-                // Check if message already exists
-                const exists = currentChats.some(chat => 
-                  chat.chatId === chatId && 
-                  chat.text === text && 
-                  Math.abs(new Date(chat.timestamp).getTime() - new Date(timestamp).getTime()) < 5000
-                );
-                
-                if (!exists) {
-                  newChats.push({
-                    id: newChats.length + 1,
-                    chatId,
-                    user,
-                    username,
-                    text,
-                    from: 'user',
-                    timestamp
-                  });
-                }
-              }
-            }
-            
-            // Save updated chats
-            if (newChats.length > currentChats.length) {
-              await saveChats(
-                githubToken,
-                githubRepo.owner,
-                githubRepo.repo,
-                newChats
-              );
-              setChats(newChats);
-            }
-          }
-        } catch (err) {
-          console.error('Error checking for new messages:', err);
+      try {
+        const response = await fetch('/api/telegram', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'getUpdates',
+            apiKey: telegramApiKey
+          }),
+        });
+        
+        if (response.ok) {
+          const { chats: updatedChats } = await response.json();
+          setChats(updatedChats);
         }
+      } catch (err) {
+        console.error('Error checking for new messages:', err);
       }
     }, 5000); // Check every 5 seconds
     
     return () => clearInterval(interval);
-  }, [router]);
+  }, [telegramApiKey]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!message.trim() || !selectedChat) return;
-    
-    const telegramApiKey = localStorage.getItem('telegramApiKey');
-    const githubToken = localStorage.getItem('githubToken');
-    
-    if (!telegramApiKey || !githubToken) {
-      router.push('/');
-      return;
-    }
+    if (!message.trim() || !selectedChat || !telegramApiKey) return;
     
     try {
-      // Send message to Telegram
-      const result = await sendMessage(telegramApiKey, selectedChat.chatId, message);
-      
-      if (result) {
-        // Add message to local state
-        const newMessage = {
-          id: chats.length + 1,
+      const response = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'sendMessage',
+          apiKey: telegramApiKey,
           chatId: selectedChat.chatId,
-          user: 'Bot',
-          username: 'bot',
-          text: message,
-          from: 'bot',
-          timestamp: new Date().toISOString()
-        };
-        
-        const updatedChats = [...chats, newMessage];
+          text: message
+        }),
+      });
+      
+      if (response.ok) {
+        const { chats: updatedChats } = await response.json();
         setChats(updatedChats);
-        
-        // Save to GitHub
-        await saveChats(
-          githubToken,
-          githubRepo.owner,
-          githubRepo.repo,
-          updatedChats
-        );
-        
-        // Clear input
         setMessage('');
       } else {
         setError('Failed to send message');
@@ -203,10 +154,32 @@ export default function Chat() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('telegramApiKey');
-    localStorage.removeItem('githubToken');
-    router.push('/');
+  const handleLogout = async () => {
+    try {
+      // Remove the token from GitHub database
+      const chatsResponse = await fetch('/api/chats');
+      const chats = await chatsResponse.json();
+      
+      // Filter out the token message
+      const updatedChats = chats.filter(chat => 
+        !(chat.chatId === 0 && chat.text.startsWith('/settoken '))
+      );
+      
+      // Save updated chats
+      await fetch('/api/chats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chats: updatedChats }),
+      });
+      
+      // Redirect to login page
+      router.push('/');
+    } catch (err) {
+      console.error('Error during logout:', err);
+      setError('Failed to logout properly');
+    }
   };
 
   if (loading) {
@@ -371,4 +344,4 @@ export default function Chat() {
       )}
     </div>
   );
-  }
+}
