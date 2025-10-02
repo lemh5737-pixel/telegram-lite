@@ -40,7 +40,8 @@ export default async function handler(req, res) {
                 username,
                 text,
                 from: 'user',
-                timestamp
+                timestamp,
+                telegramMessageId: message.message_id // Store Telegram message ID for deletion
               });
             }
           }
@@ -67,7 +68,8 @@ export default async function handler(req, res) {
             username: 'bot',
             text,
             from: 'bot',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            telegramMessageId: result.message_id // Store Telegram message ID for deletion
           };
           
           const updatedChats = [...currentChats, newMessage];
@@ -89,4 +91,4 @@ export default async function handler(req, res) {
     console.error('Telegram API error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
-    }
+}
