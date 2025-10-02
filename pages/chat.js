@@ -10,7 +10,7 @@ export default function Chat() {
   const [telegramApiKey, setTelegramApiKey] = useState('');
   const [githubRepo, setGithubRepo] = useState({ owner: '', repo: '' });
   const [isInitialized, setIsInitialized] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { chatId, messageId }
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { chatId, messageId, telegramMessageId }
   const messagesEndRef = useRef(null);
   const router = useRouter();
   
@@ -86,15 +86,25 @@ export default function Chat() {
           const initialChats = await chatsResponse.json();
           setChats(initialChats);
           
-          // Select the first user chat if available
-          const userChats = initialChats.filter(chat => chat.chatId !== 0);
-          if (userChats.length > 0) {
-            const lastChat = userChats[userChats.length - 1];
+          // Check if we have a chat ID in the query parameters
+          const { chatId, name, username } = router.query;
+          if (chatId) {
             setSelectedChat({
-              chatId: lastChat.chatId,
-              name: lastChat.user,
-              username: lastChat.username
+              chatId: parseInt(chatId),
+              name: name || 'User',
+              username: username || ''
             });
+          } else {
+            // Select the first user chat if available
+            const userChats = initialChats.filter(chat => chat.chatId !== 0);
+            if (userChats.length > 0) {
+              const lastChat = userChats[userChats.length - 1];
+              setSelectedChat({
+                chatId: lastChat.chatId,
+                name: lastChat.user,
+                username: lastChat.username
+              });
+            }
           }
         } else {
           throw new Error('Failed to load chats');
@@ -173,8 +183,19 @@ export default function Chat() {
     }
   };
 
-  const handleDeleteMessage = async (messageId) => {
+  const handleDeleteMessage = async (messageId, telegramMessageId) => {
     try {
+      // If it's a bot message, delete it from Telegram first
+      if (telegramMessageId) {
+        const deleteResponse = await fetch(`https://api.telegram.org/bot${telegramApiKey}/deleteMessage?chat_id=${selectedChat.chatId}&message_id=${telegramMessageId}`);
+        const deleteData = await deleteResponse.json();
+        
+        if (!deleteData.ok) {
+          console.error('Failed to delete message from Telegram:', deleteData.description);
+          // Continue with deleting from local database even if Telegram deletion fails
+        }
+      }
+      
       // Filter out the message to be deleted
       const updatedChats = chats.filter(chat => chat.id !== messageId);
       
@@ -191,7 +212,7 @@ export default function Chat() {
         setChats(updatedChats);
         setDeleteConfirm(null); // Close confirmation dialog
       } else {
-        setError('Failed to delete message');
+        setError('Failed to delete message from database');
       }
     } catch (err) {
       console.error('Error deleting message:', err);
@@ -247,12 +268,20 @@ export default function Chat() {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">Telegram Lite</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          >
-            Logout
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => router.push('/contacts')}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Contacts
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -348,7 +377,11 @@ export default function Chat() {
                             
                             {/* Delete button - only visible on hover */}
                             <button
-                              onClick={() => setDeleteConfirm({ chatId: chat.chatId, messageId: chat.id })}
+                              onClick={() => setDeleteConfirm({ 
+                                chatId: chat.chatId, 
+                                messageId: chat.id,
+                                telegramMessageId: chat.telegramMessageId
+                              })}
                               className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${chat.from === 'bot' ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-700'}`}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -409,7 +442,7 @@ export default function Chat() {
                 Cancel
               </button>
               <button
-                onClick={() => handleDeleteMessage(deleteConfirm.messageId)}
+                onClick={() => handleDeleteMessage(deleteConfirm.messageId, deleteConfirm.telegramMessageId)}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 Delete
