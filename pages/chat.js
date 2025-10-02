@@ -9,6 +9,7 @@ export default function Chat() {
   const [error, setError] = useState('');
   const [telegramApiKey, setTelegramApiKey] = useState('');
   const [githubRepo, setGithubRepo] = useState({ owner: '', repo: '' });
+  const [isInitialized, setIsInitialized] = useState(false);
   const messagesEndRef = useRef(null);
   const router = useRouter();
   
@@ -42,6 +43,12 @@ export default function Chat() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // First, check if we have a token in localStorage
+        const savedToken = localStorage.getItem('telegramApiKey');
+        if (savedToken) {
+          setTelegramApiKey(savedToken);
+        }
+        
         // Get GitHub repo config
         const configResponse = await fetch('/api/config');
         if (configResponse.ok) {
@@ -51,15 +58,25 @@ export default function Chat() {
           throw new Error('Failed to get repository configuration');
         }
         
-        // Get Telegram API key
-        const tokenResponse = await fetch('/api/botToken');
-        if (tokenResponse.ok) {
-          const { token } = await tokenResponse.json();
-          setTelegramApiKey(token);
-        } else {
-          // If no token found, redirect to login
-          router.push('/');
-          return;
+        // If we don't have a token in localStorage, try to get it from GitHub
+        if (!savedToken) {
+          const tokenResponse = await fetch('/api/botToken');
+          if (tokenResponse.ok) {
+            const { token } = await tokenResponse.json();
+            if (token) {
+              setTelegramApiKey(token);
+              // Save to localStorage for future use
+              localStorage.setItem('telegramApiKey', token);
+            } else {
+              // No token found in GitHub either, redirect to login
+              router.push('/');
+              return;
+            }
+          } else {
+            // If we can't get token from GitHub, redirect to login
+            router.push('/');
+            return;
+          }
         }
         
         // Load initial chats
@@ -82,6 +99,7 @@ export default function Chat() {
           throw new Error('Failed to load chats');
         }
         
+        setIsInitialized(true);
         setLoading(false);
       } catch (err) {
         console.error('Initialization error:', err);
@@ -95,7 +113,7 @@ export default function Chat() {
   
   // Set up interval to check for new messages
   useEffect(() => {
-    if (!telegramApiKey) return;
+    if (!isInitialized || !telegramApiKey) return;
     
     const interval = setInterval(async () => {
       try {
@@ -120,7 +138,7 @@ export default function Chat() {
     }, 5000); // Check every 5 seconds
     
     return () => clearInterval(interval);
-  }, [telegramApiKey]);
+  }, [isInitialized, telegramApiKey]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -156,6 +174,9 @@ export default function Chat() {
 
   const handleLogout = async () => {
     try {
+      // Remove token from localStorage
+      localStorage.removeItem('telegramApiKey');
+      
       // Remove the token from GitHub database
       const chatsResponse = await fetch('/api/chats');
       const chats = await chatsResponse.json();
