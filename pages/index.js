@@ -6,6 +6,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [githubConfig, setGithubConfig] = useState({ owner: '', repo: '' });
   const router = useRouter();
 
   useEffect(() => {
@@ -14,6 +15,24 @@ export default function Home() {
     if (savedToken) {
       router.push('/contacts');
     }
+    
+    // Get GitHub config
+    const fetchGithubConfig = async () => {
+      try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+          const { repo } = await response.json();
+          setGithubConfig(repo);
+        } else {
+          setError('Gagal ambil konfigurasi GitHub');
+        }
+      } catch (err) {
+        console.error('Error fetching GitHub config:', err);
+        setError('Gagal ambil konfigurasi GitHub');
+      }
+    };
+    
+    fetchGithubConfig();
   }, [router]);
 
   const handleLogin = async (e) => {
@@ -24,14 +43,16 @@ export default function Home() {
       return;
     }
     
+    if (!githubConfig.owner || !githubConfig.repo) {
+      setError('Konfigurasi GitHub belum diatur dengan benar');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     
     try {
-      // Save the token to GitHub database
-      const configResponse = await fetch('/api/config');
-      const { repo } = await configResponse.json();
-      
+      // Get current chats
       const chatsResponse = await fetch('/api/chats');
       const chats = await chatsResponse.json();
       
@@ -91,6 +112,11 @@ export default function Home() {
           <p className="mt-2 text-gray-600">
             Chat pake Telegram tapi lebih simpel!
           </p>
+          {githubConfig.owner && githubConfig.repo && (
+            <p className="mt-2 text-sm text-gray-500">
+              Terhubung ke repository: {githubConfig.owner}/{githubConfig.repo}
+            </p>
+          )}
         </div>
         
         <div className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
@@ -151,18 +177,18 @@ export default function Home() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Still saving...
+                    Lagi nyimpen...
                   </span>
-                ) : 'Enter'}
+                ) : 'Masuk'}
               </button>
             </div>
           </form>
         </div>
         
         <div className="text-center text-sm text-gray-500">
-          <p> Telegram Lite • by Vortex Vipers</p>
+          <p> Telegram Lite • By Vortex</p>
         </div>
       </div>
     </div>
   );
-    }
+}
