@@ -8,22 +8,11 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkLoginStatus = async () => {
-      try {
-        const response = await fetch('/api/botToken');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.token) {
-            router.push('/chat');
-          }
-        }
-      } catch (err) {
-        console.error('Error checking login status:', err);
-      }
-    };
-    
-    checkLoginStatus();
+    // Check if user is already logged in (has token in localStorage)
+    const savedToken = localStorage.getItem('telegramApiKey');
+    if (savedToken) {
+      router.push('/chat');
+    }
   }, [router]);
 
   const handleLogin = async (e) => {
@@ -35,6 +24,7 @@ export default function Home() {
     }
     
     setIsLoading(true);
+    setError('');
     
     try {
       // Save the token to GitHub database
@@ -57,7 +47,8 @@ export default function Home() {
       
       const updatedChats = [...chats, tokenMessage];
       
-      await fetch('/api/chats', {
+      // Save to GitHub
+      const saveResponse = await fetch('/api/chats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,11 +56,18 @@ export default function Home() {
         body: JSON.stringify({ chats: updatedChats }),
       });
       
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save token to GitHub');
+      }
+      
+      // Save token to localStorage
+      localStorage.setItem('telegramApiKey', telegramApiKey);
+      
       // Redirect to chat page
       router.push('/chat');
     } catch (err) {
       console.error('Error saving token:', err);
-      setError('Failed to save API key');
+      setError('Failed to save API key. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -101,6 +99,7 @@ export default function Home() {
                 placeholder="Telegram Bot API Key"
                 value={telegramApiKey}
                 onChange={(e) => setTelegramApiKey(e.target.value)}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -113,13 +112,21 @@ export default function Home() {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Saving...' : 'Save API Key'}
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : 'Save API Key'}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-    }
+}
