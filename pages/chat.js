@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 
 export default function Chat() {
   const [chats, setChats] = useState([]);
+  const [users, setUsers] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -15,17 +16,14 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const router = useRouter();
   
-  // Get unique users from chats (excluding system messages)
-  const uniqueUsers = [...new Set(chats.filter(chat => chat.chatId !== 0).map(chat => chat.chatId))].map(chatId => {
-    const userChat = chats.find(chat => chat.chatId === chatId);
-    return {
-      chatId,
-      name: userChat.user,
-      username: userChat.username,
-      lastMessage: userChat.text,
-      timestamp: userChat.timestamp
-    };
-  });
+  // Get unique users from users data
+  const uniqueUsers = users.map(user => ({
+    chatId: user.chatId,
+    name: user.name,
+    username: user.username,
+    lastMessage: user.lastMessage,
+    timestamp: user.lastMessageTime
+  }));
 
   // Filter chats for selected user
   const userChats = selectedChat 
@@ -81,6 +79,15 @@ export default function Chat() {
           }
         }
         
+        // Load initial users
+        const usersResponse = await fetch('/api/users');
+        if (usersResponse.ok) {
+          const initialUsers = await usersResponse.json();
+          setUsers(initialUsers);
+        } else {
+          throw new Error('Gagal muat data pengguna');
+        }
+        
         // Load initial chats
         const chatsResponse = await fetch('/api/chats');
         if (chatsResponse.ok) {
@@ -97,13 +104,12 @@ export default function Chat() {
             });
           } else {
             // Select the first user chat if available
-            const userChats = initialChats.filter(chat => chat.chatId !== 0);
-            if (userChats.length > 0) {
-              const lastChat = userChats[userChats.length - 1];
+            if (initialUsers.length > 0) {
+              const lastUser = initialUsers[initialUsers.length - 1];
               setSelectedChat({
-                chatId: lastChat.chatId,
-                name: lastChat.user,
-                username: lastChat.username
+                chatId: lastUser.chatId,
+                name: lastUser.name,
+                username: lastUser.username
               });
             }
           }
@@ -141,8 +147,9 @@ export default function Chat() {
         });
         
         if (response.ok) {
-          const { chats: updatedChats } = await response.json();
+          const { chats: updatedChats, users: updatedUsers } = await response.json();
           setChats(updatedChats);
+          setUsers(updatedUsers);
         }
       } catch (err) {
         console.error('Error checking for new messages:', err);
@@ -172,8 +179,9 @@ export default function Chat() {
       });
       
       if (response.ok) {
-        const { chats: updatedChats } = await response.json();
+        const { chats: updatedChats, users: updatedUsers } = await response.json();
         setChats(updatedChats);
+        setUsers(updatedUsers);
         setMessage('');
       } else {
         setError('Gagal kirim pesan');
