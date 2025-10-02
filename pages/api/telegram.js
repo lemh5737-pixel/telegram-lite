@@ -4,6 +4,13 @@ import { GITHUB_TOKEN, GITHUB_REPO } from '../../lib/config';
 
 export default async function handler(req, res) {
   try {
+    // Check if GitHub token is properly set
+    if (!GITHUB_TOKEN) {
+      return res.status(500).json({ 
+        message: 'GitHub token is not properly set in environment variables' 
+      });
+    }
+    
     if (req.method === 'POST') {
       const { action, apiKey, chatId, text } = req.body;
       
