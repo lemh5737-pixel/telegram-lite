@@ -1,5 +1,5 @@
 import { getUpdates, sendMessage } from '../../lib/telegram';
-import { getChats, saveChats } from '../../lib/github';
+import { getChats, saveChats, getUsers, saveUsers } from '../../lib/github';
 import { GITHUB_TOKEN, GITHUB_REPO } from '../../lib/config';
 
 export default async function handler(req, res) {
@@ -13,8 +13,12 @@ export default async function handler(req, res) {
         // Get current chats
         const currentChats = await getChats(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo);
         
-        // Process new messages
+        // Get current users
+        const currentUsers = await getUsers(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo);
+        
+        // Process new messages and update users
         const newChats = [...currentChats];
+        const newUsers = [...currentUsers];
         
         for (const update of updates) {
           if (update.message && update.message.text) {
@@ -43,6 +47,30 @@ export default async function handler(req, res) {
                 timestamp,
                 telegramMessageId: message.message_id // Store Telegram message ID for deletion
               });
+              
+              // Check if user already exists in users list
+              const userExists = newUsers.some(u => u.chatId === chatId);
+              
+              if (!userExists) {
+                newUsers.push({
+                  chatId,
+                  name: user,
+                  username,
+                  lastMessage: text,
+                  lastMessageTime: timestamp,
+                  firstContactTime: timestamp
+                });
+              } else {
+                // Update user's last message
+                const userIndex = newUsers.findIndex(u => u.chatId === chatId);
+                if (userIndex !== -1) {
+                  newUsers[userIndex] = {
+                    ...newUsers[userIndex],
+                    lastMessage: text,
+                    lastMessageTime: timestamp
+                  };
+                }
+              }
             }
           }
         }
@@ -52,13 +80,22 @@ export default async function handler(req, res) {
           await saveChats(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo, newChats);
         }
         
-        res.status(200).json({ updates, chats: newChats });
+        // Save updated users if there are new users or updated messages
+        if (newUsers.length > currentUsers.length || 
+            JSON.stringify(newUsers) !== JSON.stringify(currentUsers)) {
+          await saveUsers(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo, newUsers);
+        }
+        
+        res.status(200).json({ updates, chats: newChats, users: newUsers });
       } else if (action === 'sendMessage') {
         const result = await sendMessage(apiKey, chatId, text);
         
         if (result) {
           // Get current chats
           const currentChats = await getChats(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo);
+          
+          // Get current users
+          const currentUsers = await getUsers(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo);
           
           // Add bot message to chats
           const newMessage = {
@@ -74,10 +111,23 @@ export default async function handler(req, res) {
           
           const updatedChats = [...currentChats, newMessage];
           
+          // Update user's last message
+          const updatedUsers = [...currentUsers];
+          const userIndex = updatedUsers.findIndex(u => u.chatId === chatId);
+          
+          if (userIndex !== -1) {
+            updatedUsers[userIndex] = {
+              ...updatedUsers[userIndex],
+              lastMessage: text,
+              lastMessageTime: new Date().toISOString()
+            };
+          }
+          
           // Save to GitHub
           await saveChats(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo, updatedChats);
+          await saveUsers(GITHUB_TOKEN, GITHUB_REPO.owner, GITHUB_REPO.repo, updatedUsers);
           
-          res.status(200).json({ result, chats: updatedChats });
+          res.status(200).json({ result, chats: updatedChats, users: updatedUsers });
         } else {
           res.status(500).json({ message: 'Failed to send message' });
         }
