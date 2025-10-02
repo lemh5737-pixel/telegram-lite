@@ -6,6 +6,9 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [telegramApiKey, setTelegramApiKey] = useState('');
+  const [newContact, setNewContact] = useState({ username: '', userId: '' });
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const router = useRouter();
   
   // Get unique users from chats (excluding system messages)
@@ -95,6 +98,103 @@ export default function Contacts() {
     });
   };
 
+  const handleAddContact = async (e) => {
+    e.preventDefault();
+    
+    if (!newContact.username && !newContact.userId) {
+      setError('Username or User ID is required');
+      return;
+    }
+    
+    setIsAdding(true);
+    setError('');
+    
+    try {
+      let chatId = null;
+      let userInfo = null;
+      
+      // If username is provided, try to get user info
+      if (newContact.username) {
+        const response = await fetch(`https://api.telegram.org/bot${telegramApiKey}/getChat?chat_id=@${newContact.username}`);
+        const data = await response.json();
+        
+        if (data.ok) {
+          chatId = data.result.id;
+          userInfo = {
+            name: data.result.first_name + (data.result.last_name ? ' ' + data.result.last_name : ''),
+            username: data.result.username || ''
+          };
+        } else {
+          throw new Error(`User @${newContact.username} not found`);
+        }
+      } 
+      // If userId is provided, try to get user info
+      else if (newContact.userId) {
+        const response = await fetch(`https://api.telegram.org/bot${telegramApiKey}/getChat?chat_id=${newContact.userId}`);
+        const data = await response.json();
+        
+        if (data.ok) {
+          chatId = data.result.id;
+          userInfo = {
+            name: data.result.first_name + (data.result.last_name ? ' ' + data.result.last_name : ''),
+            username: data.result.username || ''
+          };
+        } else {
+          throw new Error(`User with ID ${newContact.userId} not found`);
+        }
+      }
+      
+      if (chatId && userInfo) {
+        // Add a system message to initiate the chat
+        const chatsResponse = await fetch('/api/chats');
+        const currentChats = await chatsResponse.json();
+        
+        const systemMessage = {
+          id: currentChats.length + 1,
+          chatId,
+          user: userInfo.name,
+          username: userInfo.username,
+          text: 'Chat initiated',
+          from: 'system',
+          timestamp: new Date().toISOString()
+        };
+        
+        const updatedChats = [...currentChats, systemMessage];
+        
+        // Save updated chats
+        await fetch('/api/chats', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ chats: updatedChats }),
+        });
+        
+        // Update local state
+        setChats(updatedChats);
+        
+        // Reset form
+        setNewContact({ username: '', userId: '' });
+        setShowAddContact(false);
+        
+        // Navigate to chat page
+        router.push({
+          pathname: '/chat',
+          query: { 
+            chatId,
+            name: userInfo.name,
+            username: userInfo.username
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error adding contact:', err);
+      setError(err.message || 'Failed to add contact');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       // Remove token from localStorage
@@ -145,6 +245,12 @@ export default function Contacts() {
           <h1 className="text-3xl font-bold text-gray-900">Contacts</h1>
           <div className="flex space-x-2">
             <button
+              onClick={() => setShowAddContact(!showAddContact)}
+              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Add Contact
+            </button>
+            <button
               onClick={() => router.push('/chat')}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
@@ -159,6 +265,75 @@ export default function Contacts() {
           </div>
         </div>
       </header>
+
+      {/* Add Contact Form */}
+      {showAddContact && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+            <form onSubmit={handleAddContact} className="space-y-4">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  Username (without @)
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    name="username"
+                    id="username"
+                    value={newContact.username}
+                    onChange={(e) => setNewContact({...newContact, username: e.target.value, userId: ''})}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
+                    placeholder="john_doe"
+                  />
+                </div>
+              </div>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">OR</span>
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="userId" className="block text-sm font-medium text-gray-700">
+                  User ID
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="number"
+                    name="userId"
+                    id="userId"
+                    value={newContact.userId}
+                    onChange={(e) => setNewContact({...newContact, userId: e.target.value, username: ''})}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
+                    placeholder="123456789"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddContact(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdding}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                >
+                  {isAdding ? 'Adding...' : 'Add Contact'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="flex-grow">
@@ -213,7 +388,9 @@ export default function Contacts() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">No contacts</h3>
-                  <p className="mt-1 text-sm text-gray-500">Get started by sending a message to your bot.</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Get started by adding a contact or waiting for someone to message your bot.
+                  </p>
                 </li>
               )}
             </ul>
@@ -228,4 +405,4 @@ export default function Contacts() {
       )}
     </div>
   );
-                                 }
+}
