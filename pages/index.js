@@ -11,7 +11,7 @@ export default function Home() {
     // Check if user is already logged in (has token in localStorage)
     const savedToken = localStorage.getItem('telegramApiKey');
     if (savedToken) {
-      router.push('/chat');
+      router.push('/contacts');
     }
   }, [router]);
 
@@ -63,8 +63,8 @@ export default function Home() {
       // Save token to localStorage
       localStorage.setItem('telegramApiKey', telegramApiKey);
       
-      // Redirect to chat page
-      router.push('/chat');
+      // Redirect to contacts page
+      router.push('/contacts');
     } catch (err) {
       console.error('Error saving token:', err);
       setError('Failed to save API key. Please try again.');
