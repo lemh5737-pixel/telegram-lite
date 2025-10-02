@@ -11,6 +11,7 @@ export default function Chat() {
   const [githubRepo, setGithubRepo] = useState({ owner: '', repo: '' });
   const [isInitialized, setIsInitialized] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // { chatId, messageId, telegramMessageId }
+  const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef(null);
   const router = useRouter();
   
@@ -56,7 +57,7 @@ export default function Chat() {
           const { repo } = await configResponse.json();
           setGithubRepo(repo);
         } else {
-          throw new Error('Failed to get repository configuration');
+          throw new Error('Gagal ambil konfigurasi repo');
         }
         
         // If we don't have a token in localStorage, try to get it from GitHub
@@ -107,14 +108,14 @@ export default function Chat() {
             }
           }
         } else {
-          throw new Error('Failed to load chats');
+          throw new Error('Gagal muat chat');
         }
         
         setIsInitialized(true);
         setLoading(false);
       } catch (err) {
         console.error('Initialization error:', err);
-        setError(err.message || 'Failed to initialize app');
+        setError(err.message || 'Gagal inisialisasi aplikasi');
         setLoading(false);
       }
     };
@@ -175,11 +176,11 @@ export default function Chat() {
         setChats(updatedChats);
         setMessage('');
       } else {
-        setError('Failed to send message');
+        setError('Gagal kirim pesan');
       }
     } catch (err) {
       console.error('Error sending message:', err);
-      setError('Failed to send message');
+      setError('Gagal kirim pesan');
     }
   };
 
@@ -212,11 +213,11 @@ export default function Chat() {
         setChats(updatedChats);
         setDeleteConfirm(null); // Close confirmation dialog
       } else {
-        setError('Failed to delete message from database');
+        setError('Gagal hapus pesan dari database');
       }
     } catch (err) {
       console.error('Error deleting message:', err);
-      setError('Failed to delete message');
+      setError('Gagal hapus pesan');
     }
   };
 
@@ -247,67 +248,103 @@ export default function Chat() {
       router.push('/');
     } catch (err) {
       console.error('Error during logout:', err);
-      setError('Failed to logout properly');
+      setError('Gagal logout dengan benar');
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading chats...</p>
+          <p className="mt-4 text-gray-700">Lagi muat chat...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Telegram Lite</h1>
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          <div className="flex items-center">
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="md:hidden mr-2 p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            </div>
+            <h1 className="ml-3 text-2xl font-bold text-gray-900">Chat</h1>
+          </div>
           <div className="flex space-x-2">
             <button
               onClick={() => router.push('/contacts')}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="hidden md:flex px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-105"
             >
-              Contacts
+              <div className="flex items-center">
+                <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Kontak
+              </div>
             </button>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105"
             >
-              Logout
+              <div className="flex items-center">
+                <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Keluar
+              </div>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-grow flex">
+      <main className="flex-grow flex overflow-hidden">
+        {/* Mobile sidebar overlay */}
+        {showSidebar && (
+          <div 
+            className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
+            onClick={() => setShowSidebar(false)}
+          ></div>
+        )}
+        
         <div className="flex flex-col md:flex-row w-full max-w-7xl mx-auto">
           {/* Sidebar */}
-          <div className="w-full md:w-1/3 bg-white border-r border-gray-200 overflow-y-auto">
+          <div className={`${showSidebar ? 'absolute inset-y-0 left-0 z-30 w-3/4 max-w-xs' : 'hidden'} md:block md:w-1/3 bg-white border-r border-gray-200 overflow-y-auto shadow-lg md:shadow-none`}>
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Chats</h2>
+              <h2 className="text-lg font-medium text-gray-900">Chat ({uniqueUsers.length})</h2>
             </div>
             <div className="divide-y divide-gray-200">
               {uniqueUsers.length > 0 ? (
                 uniqueUsers.map((user, index) => (
                   <div
                     key={index}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 ${selectedChat && selectedChat.chatId === user.chatId ? 'bg-blue-50' : ''}`}
-                    onClick={() => setSelectedChat({
-                      chatId: user.chatId,
-                      name: user.name,
-                      username: user.username
-                    })}
+                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedChat && selectedChat.chatId === user.chatId ? 'bg-blue-50' : ''}`}
+                    onClick={() => {
+                      setSelectedChat({
+                        chatId: user.chatId,
+                        name: user.name,
+                        username: user.username
+                      });
+                      setShowSidebar(false);
+                    }}
                   >
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                        <span className="text-indigo-800 font-medium">
+                      <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold">
                           {user.name.charAt(0)}
                         </span>
                       </div>
@@ -316,7 +353,7 @@ export default function Chat() {
                           {user.name}
                         </p>
                         <p className="text-sm text-gray-500 truncate">
-                          {user.username ? `@${user.username}` : ''} • {user.chatId}
+                          {user.username ? `@${user.username}` : 'No username'} • {user.chatId}
                         </p>
                         <p className="text-xs text-gray-400 truncate">
                           {user.lastMessage}
@@ -327,7 +364,7 @@ export default function Chat() {
                 ))
               ) : (
                 <div className="p-4 text-center text-gray-500">
-                  No chats yet
+                  Belum ada chat
                 </div>
               )}
             </div>
@@ -338,10 +375,10 @@ export default function Chat() {
             {selectedChat ? (
               <>
                 {/* Chat header */}
-                <div className="bg-white p-4 border-b border-gray-200">
+                <div className="bg-white p-4 border-b border-gray-200 shadow-sm">
                   <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <span className="text-indigo-800 font-medium">
+                    <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">
                         {selectedChat.name.charAt(0)}
                       </span>
                     </div>
@@ -350,14 +387,14 @@ export default function Chat() {
                         {selectedChat.name}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {selectedChat.username ? `@${selectedChat.username}` : ''} • {selectedChat.chatId}
+                        {selectedChat.username ? `@${selectedChat.username}` : 'No username'} • {selectedChat.chatId}
                       </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-grow overflow-y-auto p-4 bg-gray-100">
+                <div className="flex-grow overflow-y-auto p-4 bg-gradient-to-b from-white to-gray-100">
                   {userChats.length > 0 ? (
                     <div className="space-y-4">
                       {userChats.map((chat, index) => (
@@ -371,7 +408,7 @@ export default function Chat() {
                             </div>
                           ) : (
                             <div
-                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-xl relative group ${chat.from === 'bot' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}
+                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative group ${chat.from === 'bot' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none shadow-sm'}`}
                             >
                               <p>{chat.text}</p>
                               <p
@@ -401,33 +438,60 @@ export default function Chat() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-gray-500">No messages yet. Start a conversation!</p>
+                      <div className="text-center">
+                        <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">Belum ada pesan</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Mulai percakapan dengan kirim pesan
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Message input */}
-                <div className="bg-white p-4 border-t border-gray-200">
+                <div className="bg-white p-4 border-t border-gray-200 shadow-sm">
                   <form onSubmit={handleSendMessage} className="flex space-x-2">
                     <input
                       type="text"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Type a message..."
-                      className="flex-grow px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Ketik pesan..."
+                      className="flex-grow px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-105"
                     >
-                      Send
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
                     </button>
                   </form>
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center h-full bg-gray-100">
-                <p className="text-gray-500">Select a chat to start messaging</p>
+              <div className="flex items-center justify-center h-full bg-gradient-to-b from-white to-gray-100">
+                <div className="text-center max-w-md">
+                  <svg className="mx-auto h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900">Pilih chat untuk mulai</h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Pilih kontak dari daftar chat atau tambah kontak baru untuk mulai percakapan
+                  </p>
+                  <button
+                    onClick={() => router.push('/contacts')}
+                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:scale-105"
+                  >
+                    <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Tambah Kontak
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -437,21 +501,21 @@ export default function Chat() {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Message</h3>
-            <p className="text-gray-500 mb-6">Are you sure you want to delete this message? This action cannot be undone.</p>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Hapus Pesan</h3>
+            <p className="text-gray-500 mb-6">Yakin mau hapus pesan ini? Tindakan ini nggak bisa dibatalkan.</p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all"
               >
-                Cancel
+                Batal
               </button>
               <button
                 onClick={() => handleDeleteMessage(deleteConfirm.messageId, deleteConfirm.telegramMessageId)}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105"
               >
-                Delete
+                Hapus
               </button>
             </div>
           </div>
@@ -459,7 +523,7 @@ export default function Chat() {
       )}
 
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg">
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-xl shadow-lg animate-pulse">
           {error}
         </div>
       )}
